@@ -4,23 +4,23 @@ pragma solidity 0.8.24;
 interface ICDPEngine {
     // Ilk: a collateral type
     struct Collateral {
-        // Art [wad] total normalized stablecoin debt
+        // the debt that was borrowed divided by the rate accumulation function from deployed to current timestamp
         uint256 debt;
         // rate [ray] stablecoin debt multiplier (accumulated stability fees)
         uint256 rate_acc;
-        // spot [ray] liquidation price
+        // [ray] liquidation price: the price of the collateral times 1 - safety factor
         uint256 spot;
-        // line [rad] debt ceiling for a specific collateral type
+        // [rad] debt ceiling for a specific collateral type
         uint256 max_debt;
-        // dust [rad] debt floor for a specific collateral type
+        // [rad] debt floor for a specific collateral type, prevent small debt that discourages liquidation
         uint256 min_debt;
     }
 
-    // Urn: a specific vault (CDP)
+    // a specific vault (CDP): hold information when user borrows
     struct Position {
-        // ink [wad] collateral balance
+        // [wad] locked collateral balance
         uint256 collateral;
-        // art [wad] normalized outstanding stablecoin debt
+        // [wad] normalized outstanding stablecoin debt
         uint256 debt;
     }
 
@@ -77,13 +77,17 @@ interface ICDPEngine {
     // --- CDP Manipulation ---
     // frob
     function modify_cdp(
+        // collateral type
         bytes32 col_type,
+        // user address that maps to CDP (user hold position)
         address cdp,
+        // user address that provides collateral
         address gem_src,
+        // user address that receives stablecoin
         address coin_dst,
-        // wad
+        // change in collateral balance
         int256 delta_col,
-        // wad
+        // change in debt balance
         int256 delta_debt
     ) external;
 

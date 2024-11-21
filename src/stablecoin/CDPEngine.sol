@@ -46,12 +46,13 @@ contract CDPEngine is Auth, CircuitBreaker {
     }
 
     // --- Administration ---
+    // initialize the rate accumulation function and set its to 1
     function init(bytes32 col_type) external auth {
         require(collaterals[col_type].rate_acc == 0, "already initialized");
         collaterals[col_type].rate_acc = RAY;
     }
 
-    // file
+    // set the system parameters
     function set(bytes32 key, uint256 val) external auth not_stopped {
         if (key == "sys_max_debt") {
             sys_max_debt = val;
@@ -60,7 +61,7 @@ contract CDPEngine is Auth, CircuitBreaker {
         }
     }
 
-    // file
+    // set the collateral parameters
     function set(bytes32 col_type, bytes32 key, uint256 val) external auth not_stopped {
         if (key == "spot") {
             collaterals[col_type].spot = val;

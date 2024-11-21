@@ -1,66 +1,17 @@
-## Foundry
+# Main concepts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+1. Stability fee:
 
-Foundry consists of:
+   1. fee accumulates over time
+   2. fee rate changes over time intervals
+   3. rate accumulation function: R(t) function initilized since deployed:
+      1. amount \* R(k+j-1)/R(k-1)
+      2. use the rate accumulation function to calculate the fee from contract deployed to current timestamp and divide it by the accumulation function before user borrowed.
+      3. when multiple borrows from different times by a single user, use formula: (amount1/R from deployed to borrow1) + (amount2/R from deployed to borrow2) combine and multiply by the current R(t) (from deployed to current timestamp)
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+# Contracts
 
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+1. GemJoin
+1. CDPEngine
+1. CoinJoin
+1. Spot
