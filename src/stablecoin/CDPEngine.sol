@@ -6,17 +6,16 @@ import "../lib/Math.sol";
 import {Auth} from "../lib/Auth.sol";
 import {CircuitBreaker} from "../lib/CircuitBreaker.sol";
 
-// Vat - CDP Engine
+// Vat - CDP Engine used to manage collateral and debt
 contract CDPEngine is Auth, CircuitBreaker {
-    // ilks
     mapping(bytes32 => ICDPEngine.Collateral) public collaterals;
-    // urns - collateral type => account => position
+    // - collateral type => account => position
     mapping(bytes32 => mapping(address => ICDPEngine.Position)) public positions;
     // gem - collateral type => account => balance [wad] (unit)
     mapping(bytes32 => mapping(address => uint256)) public gem;
-    // dai - account => coin balance [rad]
+    // the internal record of the amount of stablecoin
     mapping(address => uint256) public coin;
-    // sin - account => debt balance [rad]
+    // account => debt balance [rad]
     // increases when grab or mint is called
     // decreases when burn is called
     mapping(address => uint256) public unbacked_debts;
@@ -28,21 +27,20 @@ contract CDPEngine is Auth, CircuitBreaker {
     // Line - total debt ceiling [rad]
     uint256 public sys_max_debt;
 
-    // can
-    // owner => user => can modify account
+    // owner => user => can modify account: authorization of owner to user to modify account. similar to ERC20 allowance
     mapping(address => mapping(address => bool)) public can;
 
-    // hope
+    // grant authorization to user to modify account
     function allow_account_modification(address user) external {
         can[msg.sender][user] = true;
     }
 
-    // nope
+    // deny authorization to user to modify account
     function deny_account_modification(address user) external {
         can[msg.sender][user] = false;
     }
 
-    // wish
+    // check whether a person can modify the account: should be the owner or has been authorized
     function can_modify_account(address owner, address user) public view returns (bool) {
         return owner == user || can[owner][user];
     }

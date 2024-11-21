@@ -6,6 +6,7 @@ import {IGem} from "../interfaces/IGem.sol";
 import {Auth} from "../lib/Auth.sol";
 import {CircuitBreaker} from "../lib/CircuitBreaker.sol";
 
+// GemJoin - used to join and exit collateral
 contract GemJoin is Auth, CircuitBreaker {
     event Join(address indexed user, uint256 wad);
     event Exit(address indexed user, uint256 wad);
