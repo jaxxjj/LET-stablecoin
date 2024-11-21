@@ -1,260 +1,257 @@
-// SPDX-License-Identifier: MIT
-
+// SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity 0.8.24;
 
-contract Vat {
-    // --- Auth ---
-    mapping(address => uint256) public wards;
+import {ICDPEngine} from "../interfaces/ICDPEngine.sol";
+import "../lib/Math.sol";
+import {Auth} from "../lib/Auth.sol";
+import {CircuitBreaker} from "../lib/CircuitBreaker.sol";
 
-    function rely(address usr) external auth {
-        require(live == 1, "Vat/not-live");
-        wards[usr] = 1;
+// Vat - CDP Engine
+contract CDPEngine is Auth, CircuitBreaker {
+    // ilks
+    mapping(bytes32 => ICDPEngine.Collateral) public collaterals;
+    // urns - collateral type => account => position
+    mapping(bytes32 => mapping(address => ICDPEngine.Position)) public positions;
+    // gem - collateral type => account => balance [wad] (unit)
+    mapping(bytes32 => mapping(address => uint256)) public gem;
+    // dai - account => coin balance [rad]
+    mapping(address => uint256) public coin;
+    // sin - account => debt balance [rad]
+    // increases when grab or mint is called
+    // decreases when burn is called
+    mapping(address => uint256) public unbacked_debts;
+
+    // debt - total coin issued [rad]
+    uint256 public sys_debt;
+    // vice - total unbacked coin [rad]
+    uint256 public sys_unbacked_debt;
+    // Line - total debt ceiling [rad]
+    uint256 public sys_max_debt;
+
+    // can
+    // owner => user => can modify account
+    mapping(address => mapping(address => bool)) public can;
+
+    // hope
+    function allow_account_modification(address user) external {
+        can[msg.sender][user] = true;
     }
 
-    function deny(address usr) external auth {
-        require(live == 1, "Vat/not-live");
-        wards[usr] = 0;
+    // nope
+    function deny_account_modification(address user) external {
+        can[msg.sender][user] = false;
     }
 
-    modifier auth() {
-        require(wards[msg.sender] == 1, "Vat/not-authorized");
-        _;
-    }
-
-    mapping(address => mapping(address => uint256)) public can;
-
-    function hope(address usr) external {
-        can[msg.sender][usr] = 1;
-    }
-
-    function nope(address usr) external {
-        can[msg.sender][usr] = 0;
-    }
-
-    function wish(address bit, address usr) internal view returns (bool) {
-        return either(bit == usr, can[bit][usr] == 1);
-    }
-
-    // --- Data ---
-    struct Ilk {
-        uint256 Art; // Total Normalised Debt     [wad]
-        uint256 rate; // Accumulated Rates         [ray]
-        uint256 spot; // Price with Safety Margin  [ray]
-        uint256 line; // Debt Ceiling              [rad]
-        uint256 dust; // Urn Debt Floor            [rad]
-    }
-
-    struct Urn {
-        uint256 ink; // Locked Collateral  [wad]
-        uint256 art; // Normalised Debt    [wad]
-    }
-
-    mapping(bytes32 => Ilk) public ilks;
-    mapping(bytes32 => mapping(address => Urn)) public urns;
-    mapping(bytes32 => mapping(address => uint256)) public gem; // [wad]
-    mapping(address => uint256) public dai; // [rad]
-    mapping(address => uint256) public sin; // [rad]
-
-    uint256 public debt; // Total Dai Issued    [rad]
-    uint256 public vice; // Total Unbacked Dai  [rad]
-    uint256 public Line; // Total Debt Ceiling  [rad]
-    uint256 public live; // Active Flag
-
-    // --- Init ---
-    constructor() public {
-        wards[msg.sender] = 1;
-        live = 1;
-    }
-
-    // --- Math ---
-    function _add(uint256 x, int256 y) internal pure returns (uint256 z) {
-        z = x + uint256(y);
-        require(y >= 0 || z <= x);
-        require(y <= 0 || z >= x);
-    }
-
-    function _sub(uint256 x, int256 y) internal pure returns (uint256 z) {
-        z = x - uint256(y);
-        require(y <= 0 || z <= x);
-        require(y >= 0 || z >= x);
-    }
-
-    function _mul(uint256 x, int256 y) internal pure returns (int256 z) {
-        z = int256(x) * y;
-        require(int256(x) >= 0);
-        require(y == 0 || z / y == int256(x));
-    }
-
-    function _add(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x + y) >= x);
-    }
-
-    function _sub(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require((z = x - y) <= x);
-    }
-
-    function _mul(uint256 x, uint256 y) internal pure returns (uint256 z) {
-        require(y == 0 || (z = x * y) / y == x);
+    // wish
+    function can_modify_account(address owner, address user) public view returns (bool) {
+        return owner == user || can[owner][user];
     }
 
     // --- Administration ---
-    function init(bytes32 ilk) external auth {
-        require(ilks[ilk].rate == 0, "Vat/ilk-already-init");
-        ilks[ilk].rate = 10 ** 27;
+    function init(bytes32 col_type) external auth {
+        require(collaterals[col_type].rate_acc == 0, "already initialized");
+        collaterals[col_type].rate_acc = RAY;
     }
 
-    function file(bytes32 what, uint256 data) external auth {
-        require(live == 1, "Vat/not-live");
-        if (what == "Line") Line = data;
-        else revert("Vat/file-unrecognized-param");
+    // file
+    function set(bytes32 key, uint256 val) external auth not_stopped {
+        if (key == "sys_max_debt") {
+            sys_max_debt = val;
+        } else {
+            revert("unrecognized param");
+        }
     }
 
-    function file(bytes32 ilk, bytes32 what, uint256 data) external auth {
-        require(live == 1, "Vat/not-live");
-        if (what == "spot") ilks[ilk].spot = data;
-        else if (what == "line") ilks[ilk].line = data;
-        else if (what == "dust") ilks[ilk].dust = data;
-        else revert("Vat/file-unrecognized-param");
+    // file
+    function set(bytes32 col_type, bytes32 key, uint256 val) external auth not_stopped {
+        if (key == "spot") {
+            collaterals[col_type].spot = val;
+        } else if (key == "max_debt") {
+            collaterals[col_type].max_debt = val;
+        } else if (key == "min_debt") {
+            collaterals[col_type].min_debt = val;
+        } else {
+            revert("unrecognized param");
+        }
     }
 
-    function cage() external auth {
-        live = 0;
+    // cage
+    function stop() external auth {
+        _stop();
     }
 
     // --- Fungibility ---
-    function slip(bytes32 ilk, address usr, int256 wad) external auth {
-        gem[ilk][usr] = _add(gem[ilk][usr], wad);
+    // modify_collateral_balance - modify the collateral balance of a user.
+    // positive wad means lock collateral
+    // negative wad means free collateral
+    // only called by GemJoin (only authorized)
+    function modify_collateral_balance(bytes32 col_type, address src, int256 wad) external auth {
+        // first reading the balance of the specific collateral type and the user balance, then adding the delta
+        gem[col_type][src] = Math.add(gem[col_type][src], wad);
     }
 
-    function flux(bytes32 ilk, address src, address dst, uint256 wad) external {
-        require(wish(src, msg.sender), "Vat/not-allowed");
-        gem[ilk][src] = _sub(gem[ilk][src], wad);
-        gem[ilk][dst] = _add(gem[ilk][dst], wad);
+    // flux - transfer collateral between users.
+    function transfer_collateral(bytes32 col_type, address src, address dst, uint256 wad) external {
+        require(can_modify_account(src, msg.sender), "not authorized");
+        gem[col_type][src] -= wad;
+        gem[col_type][dst] += wad;
     }
 
-    function move(address src, address dst, uint256 rad) external {
-        require(wish(src, msg.sender), "Vat/not-allowed");
-        dai[src] = _sub(dai[src], rad);
-        dai[dst] = _add(dai[dst], rad);
-    }
-
-    function either(bool x, bool y) internal pure returns (bool z) {
-        assembly {
-            z := or(x, y)
-        }
-    }
-
-    function both(bool x, bool y) internal pure returns (bool z) {
-        assembly {
-            z := and(x, y)
-        }
+    // move - transfer stable coin between users.
+    function transfer_coin(address src, address dst, uint256 rad) external {
+        require(can_modify_account(src, msg.sender), "not authorized");
+        coin[src] -= rad;
+        coin[dst] += rad;
     }
 
     // --- CDP Manipulation ---
-    function frob(bytes32 i, address u, address v, address w, int256 dink, int256 dart) external {
-        // system is live
-        require(live == 1, "Vat/not-live");
+    // frob - modify a CDP
+    // frob(i, u, v, w, dink, dart)
+    // - modify position of user u
+    // - using gem from user v
+    // - and creating coin for user w
+    // dink: change in amount of collateral
+    // dart: change in amount of debt
+    function modify_cdp(
+        bytes32 col_type,
+        address cdp,
+        address gem_src,
+        address coin_dst,
+        // wad
+        // delta_col >= 0 -> lock collateral
+        //           <  0 -> free collateral
+        int256 delta_col,
+        // wad
+        // delta_debt >= 0 -> borrow coin
+        //            <  0 -> repay
+        // delta_debt = borrow or repay coin amount * RAY / rate_acc
+        int256 delta_debt
+    ) external not_stopped {
+        ICDPEngine.Position memory pos = positions[col_type][cdp];
+        ICDPEngine.Collateral memory col = collaterals[col_type];
+        require(col.rate_acc != 0, "collateral not initialized");
 
-        Urn memory urn = urns[i][u];
-        Ilk memory ilk = ilks[i];
-        // ilk has been initialised
-        require(ilk.rate != 0, "Vat/ilk-not-init");
+        pos.collateral = Math.add(pos.collateral, delta_col);
+        // ci = coin amount at time i
+        // ri = rate_acc at time i
+        // c0 / r0 + c1 / r1 + c2 / r2 + ...
+        pos.debt = Math.add(pos.debt, delta_debt);
+        col.debt = Math.add(col.debt, delta_debt);
 
-        urn.ink = _add(urn.ink, dink);
-        urn.art = _add(urn.art, dart);
-        ilk.Art = _add(ilk.Art, dart);
-
-        int256 dtab = _mul(ilk.rate, dart);
-        uint256 tab = _mul(ilk.rate, urn.art);
-        debt = _add(debt, dtab);
+        // delta_debt = delta_coin / col.rate_acc
+        // delta_coin [rad] = col.rate_acc * delta_debt
+        int256 delta_coin = Math.mul(col.rate_acc, delta_debt);
+        // coin balance + compound interest that the cdp owes to protocol
+        // coin debt [rad]
+        uint256 coin_debt = col.rate_acc * pos.debt;
+        sys_debt = Math.add(sys_debt, delta_coin);
 
         // either debt has decreased, or debt ceilings are not exceeded
-        require(either(dart <= 0, both(_mul(ilk.Art, ilk.rate) <= ilk.line, debt <= Line)), "Vat/ceiling-exceeded");
-        // urn is either less risky than before, or it is safe
-        require(either(both(dart <= 0, dink >= 0), tab <= _mul(urn.ink, ilk.spot)), "Vat/not-safe");
+        require(
+            delta_debt <= 0 || (col.debt * col.rate_acc <= col.max_debt && sys_debt <= sys_max_debt), "delta debt > max"
+        );
+        // cdp is either less risky than before, or it is safe
+        require((delta_debt <= 0 && delta_col >= 0) || coin_debt <= pos.collateral * col.spot, "undercollateralized");
+        // cdp is either more safe, or the owner consent
+        require((delta_debt <= 0 && delta_col >= 0) || can_modify_account(cdp, msg.sender), "not allowed to modify cdp");
+        // collateral src consent
+        require(delta_col <= 0 || can_modify_account(gem_src, msg.sender), "not allowed to modify gem src");
+        // coin dst consent
+        require(delta_debt >= 0 || can_modify_account(coin_dst, msg.sender), "not allowed to modify coin dst");
 
-        // urn is either more safe, or the owner consents
-        require(either(both(dart <= 0, dink >= 0), wish(u, msg.sender)), "Vat/not-allowed-u");
-        // collateral src consents
-        require(either(dink <= 0, wish(v, msg.sender)), "Vat/not-allowed-v");
-        // debt dst consents
-        require(either(dart >= 0, wish(w, msg.sender)), "Vat/not-allowed-w");
+        // cdp has no debt, or a non-dusty amount
+        require(pos.debt == 0 || coin_debt >= col.min_debt, "debt < dust");
 
-        // urn has no debt, or a non-dusty amount
-        require(either(urn.art == 0, tab >= ilk.dust), "Vat/dust");
+        // Moving col from gem to pos, hence opposite sign
+        // lock collateral -> - gem, + pos
+        // free collateral -> + gem, - pos
+        gem[col_type][gem_src] = Math.sub(gem[col_type][gem_src], delta_col);
+        coin[coin_dst] = Math.add(coin[coin_dst], delta_coin);
 
-        gem[i][v] = _sub(gem[i][v], dink);
-        dai[w] = _add(dai[w], dtab);
-
-        urns[i][u] = urn;
-        ilks[i] = ilk;
+        positions[col_type][cdp] = pos;
+        collaterals[col_type] = col;
     }
+
     // --- CDP Fungibility ---
+    // fork - split a cdp - binary approval or splitting/merging positions.
+    //    dink: amount of collateral to exchange.
+    //    dart: amount of stable coin debt to exchange.
+    function fork(bytes32 col_type, address cdp_src, address cdp_dst, int256 delta_col, int256 delta_debt) external {
+        ICDPEngine.Position storage u = positions[col_type][cdp_src];
+        ICDPEngine.Position storage v = positions[col_type][cdp_dst];
+        ICDPEngine.Collateral storage col = collaterals[col_type];
 
-    function fork(bytes32 ilk, address src, address dst, int256 dink, int256 dart) external {
-        Urn storage u = urns[ilk][src];
-        Urn storage v = urns[ilk][dst];
-        Ilk storage i = ilks[ilk];
+        u.collateral = Math.sub(u.collateral, delta_col);
+        u.debt = Math.sub(u.debt, delta_debt);
+        v.collateral = Math.add(v.collateral, delta_col);
+        v.debt = Math.add(v.debt, delta_debt);
 
-        u.ink = _sub(u.ink, dink);
-        u.art = _sub(u.art, dart);
-        v.ink = _add(v.ink, dink);
-        v.art = _add(v.art, dart);
-
-        uint256 utab = _mul(u.art, i.rate);
-        uint256 vtab = _mul(v.art, i.rate);
+        uint256 u_coin_debt = u.debt * col.rate_acc;
+        uint256 v_coin_debt = v.debt * col.rate_acc;
 
         // both sides consent
-        require(both(wish(src, msg.sender), wish(dst, msg.sender)), "Vat/not-allowed");
+        require(can_modify_account(cdp_src, msg.sender) && can_modify_account(cdp_dst, msg.sender), "not allowed");
 
         // both sides safe
-        require(utab <= _mul(u.ink, i.spot), "Vat/not-safe-src");
-        require(vtab <= _mul(v.ink, i.spot), "Vat/not-safe-dst");
+        require(u_coin_debt <= u.collateral * col.spot, "not safe src");
+        require(v_coin_debt <= v.collateral * col.spot, "not safe dst");
 
         // both sides non-dusty
-        require(either(utab >= i.dust, u.art == 0), "Vat/dust-src");
-        require(either(vtab >= i.dust, v.art == 0), "Vat/dust-dst");
+        require(u_coin_debt >= col.min_debt || u.debt == 0, "dust src");
+        require(v_coin_debt >= col.min_debt || v.debt == 0, "dust dst");
     }
+
     // --- CDP Confiscation ---
+    // grab - liquidate a cdp
+    // grab(i, u, v, w, dink, dart)
+    // - modify the cdp of user u
+    // - give gem to user v
+    // - create sin for user w
+    function grab(bytes32 col_type, address cdp, address gem_dst, address debt_dst, int256 delta_col, int256 delta_debt)
+        external
+        auth
+    {
+        ICDPEngine.Position storage pos = positions[col_type][cdp];
+        ICDPEngine.Collateral storage col = collaterals[col_type];
 
-    function grab(bytes32 i, address u, address v, address w, int256 dink, int256 dart) external auth {
-        Urn storage urn = urns[i][u];
-        Ilk storage ilk = ilks[i];
+        pos.collateral = Math.add(pos.collateral, delta_col);
+        pos.debt = Math.add(pos.debt, delta_debt);
+        col.debt = Math.add(col.debt, delta_debt);
 
-        urn.ink = _add(urn.ink, dink);
-        urn.art = _add(urn.art, dart);
-        ilk.Art = _add(ilk.Art, dart);
+        int256 delta_coin = Math.mul(col.rate_acc, delta_debt);
 
-        int256 dtab = _mul(ilk.rate, dart);
-
-        gem[i][v] = _sub(gem[i][v], dink);
-        sin[w] = _sub(sin[w], dtab);
-        vice = _sub(vice, dtab);
+        gem[col_type][gem_dst] = Math.sub(gem[col_type][gem_dst], delta_col);
+        unbacked_debts[debt_dst] = Math.sub(unbacked_debts[debt_dst], delta_coin);
+        sys_unbacked_debt = Math.sub(sys_unbacked_debt, delta_coin);
     }
 
     // --- Settlement ---
-    function heal(uint256 rad) external {
-        address u = msg.sender;
-        sin[u] = _sub(sin[u], rad);
-        dai[u] = _sub(dai[u], rad);
-        vice = _sub(vice, rad);
-        debt = _sub(debt, rad);
+    // heal - create / destroy equal quantities of stable coin and system debt (vice).
+    function burn(uint256 rad) external {
+        unbacked_debts[msg.sender] -= rad;
+        coin[msg.sender] -= rad;
+        sys_unbacked_debt -= rad;
+        sys_debt -= rad;
     }
 
-    function suck(address u, address v, uint256 rad) external auth {
-        sin[u] = _add(sin[u], rad);
-        dai[v] = _add(dai[v], rad);
-        vice = _add(vice, rad);
-        debt = _add(debt, rad);
+    // suck - mint unbacked stable coin (accounted for with vice).
+    function mint(address debt_dst, address coin_dst, uint256 rad) external auth {
+        unbacked_debts[debt_dst] += rad;
+        coin[coin_dst] += rad;
+        sys_unbacked_debt += rad;
+        sys_debt += rad;
     }
 
     // --- Rates ---
-    function fold(bytes32 i, address u, int256 rate) external auth {
-        require(live == 1, "Vat/not-live");
-        Ilk storage ilk = ilks[i];
-        ilk.rate = _add(ilk.rate, rate);
-        int256 rad = _mul(ilk.Art, rate);
-        dai[u] = _add(dai[u], rad);
-        debt = _add(debt, rad);
+    // fold - modify the debt multiplier, creating / destroying corresponding debt.
+    function update_rate_acc(bytes32 col_type, address coin_dst, int256 delta_rate_acc) external auth not_stopped {
+        ICDPEngine.Collateral storage col = collaterals[col_type];
+        // old total debt = col.debt * col.rate_acc
+        // new total debt = col.debt * (col.rate_acc + delta_rate_acc)
+        // delta coin = new total debt - old total debt
+        col.rate_acc = Math.add(col.rate_acc, delta_rate_acc);
+        int256 delta_coin = Math.mul(col.debt, delta_rate_acc);
+        coin[coin_dst] = Math.add(coin[coin_dst], delta_coin);
+        sys_debt = Math.add(sys_debt, delta_coin);
     }
 }
