@@ -96,19 +96,19 @@ interface ICDPEngine {
         bytes32 col_type,
         address cdp_src,
         address cdp_dst,
-        // wad
-        int256 delta_col,
-        // wad
-        int256 delta_debt
-    ) external;
+        // change in collateral balance
+        int256 delta_col
+    )
+        // change in debt balance
+        external;
     function grab(
         bytes32 col_type,
         address cdp,
         address gem_dst,
         address debt_dst,
-        // wad
+        // change in collateral balance
         int256 delta_col,
-        // wad
+        // change in debt balance
         int256 delta_debt
     ) external;
 

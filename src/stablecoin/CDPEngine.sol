@@ -206,6 +206,7 @@ contract CDPEngine is Auth, CircuitBreaker {
     // - modify the cdp of user u
     // - give gem to user v
     // - create sin for user w
+    // liquidation process
     function grab(bytes32 col_type, address cdp, address gem_dst, address debt_dst, int256 delta_col, int256 delta_debt)
         external
         auth
