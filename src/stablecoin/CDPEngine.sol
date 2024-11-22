@@ -242,7 +242,7 @@ contract CDPEngine is Auth, CircuitBreaker {
     }
 
     // --- Rates ---
-    // fold - modify the debt multiplier, creating / destroying corresponding debt.
+    // modify the debt multiplier, creating / destroying corresponding debt.
     function update_rate_acc(bytes32 col_type, address coin_dst, int256 delta_rate_acc) external auth not_stopped {
         ICDPEngine.Collateral storage col = collaterals[col_type];
         // old total debt = col.debt * col.rate_acc

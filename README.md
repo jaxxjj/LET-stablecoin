@@ -14,4 +14,4 @@
 1. GemJoin
 1. CDPEngine
 1. CoinJoin
-1. Spot
+1. Spotter: any user can call to get the price of the collateral by calling peek() in Pip contract

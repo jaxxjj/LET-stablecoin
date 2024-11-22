@@ -24,7 +24,7 @@ contract Spotter is Auth, CircuitBreaker {
         par = RAY;
     }
 
-    // file
+    // update the value of LET in the reference usd
     function set(bytes32 key, uint256 val) external auth not_stopped {
         if (key == "par") {
             par = val;
@@ -32,6 +32,7 @@ contract Spotter is Auth, CircuitBreaker {
             revert("unrecognized param");
         }
     }
+    // update the price feed address for the collateral
 
     function set(bytes32 col_type, bytes32 key, address addr) external auth not_stopped {
         if (key == "price_feed") {
@@ -41,6 +42,7 @@ contract Spotter is Auth, CircuitBreaker {
         }
     }
 
+    // update the liquidation ratio for the collateral
     function set(bytes32 col_type, bytes32 key, uint256 val) external auth not_stopped {
         if (key == "liquidation_ratio") {
             collaterals[col_type].liquidation_ratio = val;
@@ -49,6 +51,7 @@ contract Spotter is Auth, CircuitBreaker {
         }
     }
 
+    // get the price of the specific collateral
     function poke(bytes32 col_type) external {
         (uint256 val, bool ok) = IPriceFeed(collaterals[col_type].price_feed).peek();
         // NOTE: spot = liquidation price
