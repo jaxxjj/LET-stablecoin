@@ -15,3 +15,4 @@
 1. CDPEngine
 1. CoinJoin
 1. Spotter: any user can call to get the price of the collateral by calling peek() in Pip contract
+1. flop: collecting LET that is unbacked by selling its governance token. when the debt auction can't cover the debt, flop is called to sell the governance token to cover the debt, reducing unbacked LET.
