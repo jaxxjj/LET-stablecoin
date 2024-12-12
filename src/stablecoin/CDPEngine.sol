@@ -6,31 +6,45 @@ import "../lib/Math.sol";
 import {Auth} from "../lib/Auth.sol";
 import {CircuitBreaker} from "../lib/CircuitBreaker.sol";
 
-// Vat - CDP Engine used to manage collateral and debt
+/// @title CDP Engine - Core CDP and System Debt Management
+/// @notice Manages Collateralized Debt Positions (CDPs), system debt, and stability fees
+/// @dev Core contract handling all CDP accounting and system state
 contract CDPEngine is Auth, CircuitBreaker {
+    /// @notice Configuration parameters for each collateral type
+    /// @dev Includes debt ceiling, liquidation ratio, stability fee rate etc
     mapping(bytes32 => ICDPEngine.Collateral) public collaterals;
-    // - collateral type => account => position
+
+    /// @notice CDP positions for each user per collateral type
+    /// @dev Tracks collateral locked and debt generated
     mapping(bytes32 => mapping(address => ICDPEngine.Position)) public positions;
-    // gem - collateral type => account => balance [wad] (unit)
+
+    /// @notice Raw collateral balances per user and collateral type
+    /// @dev Amount of tokens not yet locked in CDPs [wad]
     mapping(bytes32 => mapping(address => uint256)) public gem;
-    // the internal record of the amount of stablecoin
+
+    /// @notice Stablecoin balances per address
+    /// @dev Internal book-keeping of stablecoin amounts
     mapping(address => uint256) public coin;
-    // account => debt balance [rad]
-    // increases when grab or mint is called
-    // decreases when burn is called
+
+    /// @notice Tracks debt balances that are not backed by collateral
+    /// @dev Increases on grab/mint, decreases on burn [rad]
     mapping(address => uint256) public unbacked_debts;
 
-    // debt - total coin issued [rad]
+    /// @notice Total system debt (all stablecoins issued) [rad]
     uint256 public sys_debt;
-    // vice - total unbacked coin [rad]
+
+    /// @notice Total unbacked debt in the system [rad]
     uint256 public sys_unbacked_debt;
-    // Line - total debt ceiling [rad]
+
+    /// @notice Global debt ceiling [rad]
     uint256 public sys_max_debt;
 
-    // owner => user => can modify account: authorization of owner to user to modify account. similar to ERC20 allowance
+    /// @notice Authorization mapping for account management
+    /// @dev Similar to ERC20 allowance - owner => operator => allowed
     mapping(address => mapping(address => bool)) public can;
 
-    // grant authorization to user to modify account
+    /// @notice Grant authorization to modify account
+    /// @param user Address to authorize
     function allow_account_modification(address user) external {
         can[msg.sender][user] = true;
     }

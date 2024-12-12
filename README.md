@@ -15,4 +15,111 @@
 1. CDPEngine
 1. CoinJoin
 1. Spotter: any user can call to get the price of the collateral by calling peek() in Pip contract
+1. CollateralAuction.sol: Handles Dutch auctions of liquidated CDP collateral
+
+   - This contract manages the auction process when CDPs are liquidated. It uses a Dutch
+   - auction format where prices decline over time according to a price calculator.
+   - Key features:
+     - Dutch auction mechanism with declining prices
+     - Partial collateral purchases allowed above minimum thresholds
+     - Keeper incentives through fees
+     - Circuit breaker system for emergency stops
+     - Auction reset mechanism if price drops too far or time expires
+
+   The auction process:
+
+   1. LiquidationEngine calls start() to initiate auction
+   2. Starting price = current collateral price \* boost multiplier
+   3. Price declines according to calc contract
+   4. Buyers can purchase collateral via take() at current price
+   5. Auction needs reset via redo() if:
+      - Price drops below min_delta_price_ratio threshold
+      - Time exceeds max_duration
+   6. Emergency stop via yank() if needed
+
+   Security features:
+
+   - Three-level circuit breaker system
+   - Minimum debt/collateral thresholds
+   - Price validity checks
+   - Access controls on admin functions
+
 1. flop: collecting LET that is unbacked by selling its governance token. when the debt auction can't cover the debt, flop is called to sell the governance token to cover the debt, reducing unbacked LET.
+
+## CDPEngine
+
+The CDP Engine is the core contract responsible for managing Collateralized Debt Positions (CDPs) and system debt accounting.
+
+### Key Features
+
+1. CDP Management
+
+   - Users can create CDPs by locking collateral and generating stablecoin debt
+   - Supports multiple collateral types with different parameters
+   - Tracks collateral and debt positions per user
+   - Handles CDP modifications (add/remove collateral, generate/repay debt)
+
+2. System Accounting
+
+   - Tracks total system debt and unbacked debt
+   - Manages stability fee accumulation via rate accumulator
+   - Enforces debt ceilings and minimum debt requirements
+   - Handles internal bookkeeping of collateral and stablecoin balances
+
+3. Access Control
+   - Admin functions protected by Auth modifier
+   - Delegated access control via can mapping
+   - Emergency circuit breaker system
+   - Secure asset transfer functions
+
+### Key Functions
+
+1. modify_cdp()
+
+   - Core function for CDP manipulation
+   - Allows adding/removing collateral and generating/repaying debt
+   - Enforces safety checks:
+     - Debt ceiling compliance
+     - Collateralization ratio
+     - Minimum debt requirements
+     - Access control
+
+2. Asset Management
+
+   - transfer_collateral(): Move collateral between addresses
+   - transfer_coin(): Transfer stablecoins between addresses
+   - modify_collateral_balance(): Adjust raw collateral balances
+
+3. System Configuration
+   - init(): Initialize new collateral types
+   - set(): Configure system parameters
+   - update_min_coin(): Update minimum debt requirements
+
+### Important State Variables
+
+1. Mappings
+
+   - collaterals: Collateral type configurations
+   - positions: User CDP positions
+   - gem: Raw collateral balances
+   - coin: Stablecoin balances
+   - unbacked_debts: Debt accounting
+
+2. System State
+   - sys_debt: Total system debt
+   - sys_unbacked_debt: Total unbacked debt
+   - sys_max_debt: Global debt ceiling
+
+### Security Considerations
+
+1. Access Control
+
+   - Admin functions protected by auth modifier
+   - Delegated access via can mapping
+   - Circuit breaker for emergency stops
+
+2. Safety Checks
+   - Collateralization ratio enforcement
+   - Debt ceiling compliance
+   - Minimum debt requirements
+   - Arithmetic overflow protection
