@@ -14,20 +14,18 @@ typically be less than the base stability fee to remain sustainable.
 The purpose of Pot is to offer another incentive for holding LET.
 */
 contract Pot is Auth, CircuitBreaker {
-    // pie [wad] - Normalised savings LET
+    // Normalised savings LET [wad]
     mapping(address => uint256) public pie;
-    // Pie [wad] - Total normalised savings LET
+    // Total normalised savings LET [wad]
     uint256 public total_pie;
-    // dsr [ray] - LET savings rate
+    // LET savings rate [ray]
     uint256 public savings_rate;
-    // chi [ray] - Rate accumulator
+    // Rate accumulator [ray]
     uint256 public rate_acc;
 
-    // vat
     ICDPEngine public cdp_engine;
-    // vow
     address public ds_engine;
-    // rho [unix timestamp] - Time of last collect_stability_fee
+    // Time of last collect_stability_fee [unix timestamp]
     uint256 public updated_at;
 
     constructor(address _cdp_engine) {
@@ -37,8 +35,10 @@ contract Pot is Auth, CircuitBreaker {
         updated_at = block.timestamp;
     }
 
-    // --- Administration ---
-    // file
+    /// @notice Update system parameters
+    /// @param key Parameter name to update
+    /// @param val New parameter value
+    /// @dev Only callable by authorized addresses when system is not stopped
     function set(bytes32 key, uint256 val) external auth not_stopped {
         // check if the timestamp of last collect_stability_fee is the same as the current timestamp
         // cant update the savings rate if not call drip first
@@ -50,7 +50,10 @@ contract Pot is Auth, CircuitBreaker {
         }
     }
 
-    // file
+    /// @notice Set system addresses
+    /// @param key Address parameter name
+    /// @param addr New address value
+    /// @dev Only callable by authorized addresses
     function set(bytes32 key, address addr) external auth {
         // set the vow address
         if (key == "ds_engine") {
@@ -60,14 +63,16 @@ contract Pot is Auth, CircuitBreaker {
         }
     }
 
-    // cage
+    /// @notice Emergency shutdown function
+    /// @dev Sets savings rate to RAY and stops the contract
     function stop() external auth {
         _stop();
         savings_rate = RAY;
     }
 
-    // --- Savings Rate Accumulation ---
-    // drip
+    /// @notice Calculate and collect accumulated savings
+    /// @return Current rate accumulator value
+    /// @dev Updates rate accumulator and mints new LET for earned interest
     function collect_stability_fee() external returns (uint256) {
         require(block.timestamp >= updated_at, "now < updated_at");
         uint256 acc = Math.rmul(Math.rpow(savings_rate, block.timestamp - updated_at, RAY), rate_acc);
@@ -81,11 +86,9 @@ contract Pot is Auth, CircuitBreaker {
         return acc;
     }
 
-    // --- Savings LET Management ---
-
-    //rate_acc must be up-to-date to the current timestamp
-    // This ensures all previous interest has been properly accounted for
-    // The conversion between pie and actual LET amounts will be accurate
+    /// @notice Deposit LET into savings
+    /// @param wad Amount of LET to deposit [wad]
+    /// @dev Requires rate accumulator to be up to date
     function join(uint256 wad) external {
         require(block.timestamp == updated_at, "updated_at != now");
         pie[msg.sender] += wad;
@@ -93,6 +96,9 @@ contract Pot is Auth, CircuitBreaker {
         cdp_engine.transfer_coin(msg.sender, address(this), rate_acc * wad);
     }
 
+    /// @notice Withdraw LET from savings
+    /// @param wad Amount of LET to withdraw [wad]
+    /// @dev Transfers normalized amount * rate accumulator
     function exit(uint256 wad) external {
         pie[msg.sender] -= wad;
         total_pie -= wad;

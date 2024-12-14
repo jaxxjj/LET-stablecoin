@@ -7,6 +7,7 @@ import {ICDPEngine} from "../interfaces/ICDPEngine.sol";
 import {IOracle} from "../interfaces/IOracle.sol";
 import {ICollateralAuction} from "../interfaces/ICollateralAuction.sol";
 import {ISpotter} from "../interfaces/ISpotter.sol";
+import {IDSEngine} from "../interfaces/IDSEngine.sol";
 
 contract EmergencyShutdown is Auth {
     // --- Events ---
@@ -22,6 +23,7 @@ contract EmergencyShutdown is Auth {
     IOracle public immutable oracle;
     ICollateralAuction public immutable collateral_auction;
     ISpotter public immutable spotter;
+    IDSEngine public immutable ds_engine;
 
     constructor(address _cdp_engine, address _oracle, address _collateral_auction, address _spotter) {
         cdp_engine = ICDPEngine(_cdp_engine);
@@ -47,6 +49,9 @@ contract EmergencyShutdown is Auth {
 
         // Stop price updates
         spotter.stop();
+
+        // Stop DS Engine
+        ds_engine.stop();
 
         emit ShutdownSystem();
     }

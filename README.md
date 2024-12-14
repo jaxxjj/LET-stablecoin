@@ -46,7 +46,7 @@
 
 1. flop: collecting LET that is unbacked by selling its governance token. when the debt auction can't cover the debt, flop is called to sell the governance token to cover the debt, reducing unbacked LET.
 
-## CDPEngine
+## CDPEngine.sol
 
 The CDP Engine is the core contract responsible for managing Collateralized Debt Positions (CDPs) and system debt accounting.
 
@@ -124,7 +124,71 @@ The CDP Engine is the core contract responsible for managing Collateralized Debt
    - Minimum debt requirements
    - Arithmetic overflow protection
 
-## Oracle
+## Jug.sol
+
+The Jug contract manages and collects stability fees for different collateral types in the system, handling fee rate accumulation and collection.
+
+### Key Features
+
+1. Fee Rate Management
+
+   - Global base stability fee configuration
+   - Collateral-specific fee rates
+   - Time-based fee accumulation
+   - Rate parameter controls
+
+2. Fee Collection Process
+
+   - Automated fee calculation
+   - Time-elapsed rate accumulation
+   - Per-collateral fee tracking
+   - Fee destination management
+
+3. System Integration
+   - Coordinates with CDP Engine
+   - Updates rate accumulator
+   - Handles fee distribution
+   - Maintains fee state
+
+### Main Functions
+
+1. init()/set()
+
+   - Collateral type initialization
+   - Fee rate configuration
+   - Parameter updates
+   - System address management
+
+2. collect_stability_fee()
+
+   - Calculates accumulated fees
+   - Updates rate accumulator
+   - Processes fee collection
+   - Maintains timestamps
+
+### Security Features
+
+1. Access Control
+
+   - Auth-protected initialization
+   - Controlled parameter updates
+   - Protected fee collection
+   - Secure state modifications
+
+2. Safety Checks
+
+   - Time-based validations
+   - Rate accumulator updates
+   - State consistency checks
+   - Parameter boundaries
+
+3. State Management
+   - Accurate timestamp tracking
+   - Fee rate precision [ray]
+   - Collection state updates
+   - System synchronization
+
+## Oracle.sol
 
 The Oracle contract serves as a secure price feed mechanism for the LET stablecoin system, integrating with Pyth Network for reliable price data.
 
@@ -257,7 +321,7 @@ The EmergencyShutdown contract provides a secure and controlled mechanism for sy
    - Proportional redemption rights
    - Clear recovery process
 
-## SurplusAuction
+## SurplusAuction.sol
 
 The SurplusAuction contract manages the auctioning of surplus LET (system profits from stability fees) in exchange for MKR tokens which are then burned.
 
@@ -325,7 +389,7 @@ The SurplusAuction contract manages the auctioning of surplus LET (system profit
    - Token transfer safety
    - State consistency checks
 
-## AuctionPriceCalculator
+## AuctionPriceCalculator.sol
 
 The AuctionPriceCalculator contracts provide different price calculation strategies for Dutch auctions in the collateral liquidation process. Each implementation offers a unique price decay model optimized for different market conditions.
 
@@ -407,7 +471,7 @@ The AuctionPriceCalculator contracts provide different price calculation strateg
    - Zero-price floor
    - Time boundary checks
 
-## Coin
+## Coin.sol
 
 The Coin contract implements the system's stablecoin (LET), providing standard ERC20 functionality with controlled minting and burning capabilities.
 
@@ -469,3 +533,73 @@ The Coin contract implements the system's stablecoin (LET), providing standard E
    - Allowance verification
    - Overflow protection
    - State consistency
+
+## DSEngine.sol
+
+The DSEngine (Debt & Surplus Engine) manages system debt from liquidations and surplus from stability fees, maintaining system solvency through auction mechanisms.
+
+### Key Features
+
+1. Debt Queue Management
+
+   - Handles liquidation-generated debt
+   - Time-delayed debt processing
+   - Queued debt tracking
+   - Controlled debt settlement
+
+2. Auction Coordination
+
+   - Triggers surplus auctions for excess LET
+   - Initiates debt auctions for bad debt
+   - Manages auction parameters
+   - Tracks auction state
+
+3. System Integration
+   - Coordinates with CDP Engine
+   - Controls auction contracts
+   - Maintains system balance
+   - Handles emergency shutdown
+
+### Main Functions
+
+1. push_debt_to_queue()/pop_debt_from_queue()
+
+   - Queues liquidation debt
+   - Time-delayed processing
+   - Debt tracking updates
+   - Queue management
+
+2. start_surplus_auction()/start_debt_auction()
+
+   - Initiates system auctions
+   - Parameter validation
+   - State updates
+   - Auction coordination
+
+3. settle_debt()
+   - Direct debt settlement
+   - Surplus utilization
+   - System debt reduction
+   - Balance verification
+
+### Security Features
+
+1. Access Control
+
+   - Auth-protected operations
+   - Parameter configuration limits
+   - Auction contract management
+   - State update protection
+
+2. Safety Checks
+
+   - Debt queue validation
+   - Auction preconditions
+   - Balance verification
+   - System state consistency
+
+3. Circuit Breaker
+   - Emergency shutdown capability
+   - Auction suspension
+   - Debt queue clearing
+   - System state preservation
