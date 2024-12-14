@@ -371,7 +371,7 @@ The AuctionPriceCalculator contracts provide different price calculation strateg
    - Continuous exponential decay
    - Smooth price reduction curve
    - Maximum duration limit
-   - Formula: price = initial_price _ e^(-decay _ elapsed_time)
+   - Formula: price = initial*price * e^(-decay \_ elapsed_time)
 
 ### Key Parameters
 
@@ -406,3 +406,66 @@ The AuctionPriceCalculator contracts provide different price calculation strateg
    - Precision maintenance
    - Zero-price floor
    - Time boundary checks
+
+## Coin
+
+The Coin contract implements the system's stablecoin (LET), providing standard ERC20 functionality with controlled minting and burning capabilities.
+
+### Key Features
+
+1. Token Implementation
+
+   - Standard ERC20 interface
+   - 18 decimal precision
+   - Controlled supply management
+   - Efficient transfer mechanisms
+
+2. Supply Control
+
+   - Authorized minting capability
+   - Controlled burning process
+   - Total supply tracking
+   - Balance management
+
+3. System Integration
+   - Used in CDP collateral auctions
+   - Handles stability fee payments
+   - Supports surplus auctions
+   - Core system settlement token
+
+### Main Functions
+
+1. transfer/transferFrom()
+
+   - Standard ERC20 transfers
+   - Allowance management
+   - Balance updates
+   - Event emission
+
+2. mint/burn()
+
+   - Authorized supply control
+   - System debt management
+   - Total supply adjustments
+   - Access controlled operations
+
+3. approve/push/pull()
+   - Delegation management
+   - Convenient transfer wrappers
+   - Authorization tracking
+   - Flexible transfer patterns
+
+### Security Features
+
+1. Access Control
+
+   - Auth-protected minting
+   - Controlled supply management
+   - Secure transfer logic
+   - Protected state updates
+
+2. Safety Checks
+   - Balance validation
+   - Allowance verification
+   - Overflow protection
+   - State consistency
