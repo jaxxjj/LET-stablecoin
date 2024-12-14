@@ -186,3 +186,73 @@ The Oracle contract serves as a secure price feed mechanism for the LET stableco
    - Standardized price format
    - Excess fee return
    - Clear error handling
+
+## EmergencyShutdown
+
+The EmergencyShutdown contract provides a secure and controlled mechanism for system shutdown in emergency situations, ensuring user funds can be safely recovered.
+
+### Key Features
+
+1. System Shutdown Management
+
+   - Coordinated shutdown of all system components
+   - Permanent price feed freezing
+   - Auction process termination
+   - CDP operations suspension
+
+2. Price Settlement
+
+   - Final collateral price fixing
+   - Price validation checks
+   - One-time price setting per collateral
+   - Oracle price snapshot capture
+
+3. User Fund Recovery
+   - Collateral redemption mechanism
+   - Fair price settlement
+   - Proportional stablecoin redemption
+   - Direct collateral recovery
+
+### Main Functions
+
+1. shutdown_system()
+
+   - Initiates system-wide shutdown
+   - Stops all active system components
+   - Records shutdown timestamp
+   - Prevents new operations
+
+2. set_final_price()
+
+   - Sets final collateral prices
+   - Uses last valid Oracle price
+   - One-time operation per collateral
+   - Ensures price validity
+
+3. redeem_collateral()
+   - Allows user collateral recovery
+   - Uses fixed final prices
+   - Burns equivalent stablecoin
+   - Direct collateral transfer
+
+### Security Features
+
+1. Access Control
+
+   - Admin-only shutdown initiation
+   - Protected price setting
+   - Controlled redemption process
+   - Irreversible shutdown mechanism
+
+2. State Management
+
+   - Clear shutdown state tracking
+   - Final price immutability
+   - System component coordination
+   - Safe state transitions
+
+3. User Protection
+   - Fair price settlement
+   - Guaranteed collateral access
+   - Proportional redemption rights
+   - Clear recovery process

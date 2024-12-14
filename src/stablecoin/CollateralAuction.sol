@@ -13,34 +13,6 @@ import "../lib/Math.sol";
 import {Auth} from "../lib/Auth.sol";
 import {Guard} from "../lib/Guard.sol";
 
-// CollateralAuction - Handles Dutch auctions of liquidated CDP collateral
-//
-// This contract manages the auction process when CDPs are liquidated. It uses a Dutch
-// auction format where prices decline over time according to a price calculator.
-//
-// Key features:
-// - Dutch auction mechanism with declining prices
-// - Partial collateral purchases allowed above minimum thresholds
-// - Keeper incentives through fees
-// - Circuit breaker system for emergency stops
-// - Auction reset mechanism if price drops too far or time expires
-//
-// The auction process:
-// 1. LiquidationEngine calls start() to initiate auction
-// 2. Starting price = current collateral price * boost multiplier
-// 3. Price declines according to calc contract
-// 4. Buyers can purchase collateral via take() at current price
-// 5. Auction needs reset via redo() if:
-//    - Price drops below min_delta_price_ratio threshold
-//    - Time exceeds max_duration
-// 6. Emergency stop via yank() if needed
-//
-// Security features:
-// - Three-level circuit breaker system
-// - Minimum debt/collateral thresholds
-// - Price validity checks
-// - Access controls on admin functions
-
 // Clipper
 contract CollateralAuction is Auth, Guard {
     bytes32 public immutable collateral_type;
@@ -204,6 +176,10 @@ contract CollateralAuction is Auth, Guard {
         (uint256 val, bool ok) = IPriceFeed(col.price_feed).peek();
         require(ok, "invalid price");
         price = Math.rdiv(val * 1e9, spotter.par());
+    }
+
+    function stop() external auth {
+        stopped = 3;
     }
 
     // kick - start an auction

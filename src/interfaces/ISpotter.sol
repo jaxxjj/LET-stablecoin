@@ -13,4 +13,5 @@ interface ISpotter {
     // par [ray] - value of BEI in the reference asset (e.g. $1 per BEI)
     function par() external returns (uint256);
     function collaterals(bytes32 col_type) external view returns (Collateral memory);
+    function stop() external;
 }

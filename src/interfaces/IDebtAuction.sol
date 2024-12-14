@@ -3,15 +3,15 @@ pragma solidity 0.8.24;
 
 interface IDebtAuction {
     struct Bid {
-        // bid [rad] - BEI paid
+        //  BEI paid
         uint256 amount;
-        // lot [wad] - gems in return for bid
+        //  gems in return for bid
         uint256 lot;
-        // guy - high bidder
+        //  high bidder
         address highest_bidder;
-        // tic [timestamp] - bid expiry time
+        //  bid expiry time
         uint48 bid_expiry_time;
-        // end [timestamp] - auction expiry time
+        //  auction expiry time
         uint48 auction_end_time;
     }
 
