@@ -124,6 +124,200 @@ The CDP Engine is the core contract responsible for managing Collateralized Debt
    - Minimum debt requirements
    - Arithmetic overflow protection
 
+## CDPManager
+
+The CDP Manager provides a user-friendly interface for CDP ownership and operations, acting as a proxy layer between users and the CDP Engine.
+
+### Key Features
+
+1. CDP Ownership Management
+
+   - Tracks CDP ownership through unique identifiers
+   - Maintains double-linked list of user's CDPs
+   - Handles CDP transfers between users
+   - Manages CDP creation and identification
+
+2. Permission System
+
+   - Delegated CDP management rights
+   - Granular operation permissions
+   - CDP handler access control
+   - Owner-based authorization
+
+3. Operation Proxy
+   - Wraps CDP Engine interactions
+   - Manages CDP handlers
+   - Coordinates collateral operations
+   - Handles debt modifications
+
+### Main Functions
+
+1. CDP Creation & Transfer
+
+   - open(): Create new CDP with unique ID
+   - give(): Transfer CDP ownership
+   - allow_cdp(): Delegate CDP management
+   - allow_cdp_handler(): Grant handler permissions
+
+2. CDP Operations
+
+   - modify_cdp(): Adjust collateral and debt
+   - transfer_collateral(): Move collateral
+   - transfer_coin(): Transfer stablecoins
+   - quit()/enter(): Move positions between handlers
+
+3. Position Management
+   - shift(): Move positions between CDPs
+   - fork(): Split CDP positions
+   - merge(): Combine CDP positions
+   - track(): Monitor CDP states
+
+### Important State Variables
+
+1. Ownership Records
+
+   - owner_of: Maps CDP IDs to owners
+   - positions: Maps CDP IDs to handlers
+   - collaterals: Tracks CDP collateral types
+   - count: Number of CDPs per user
+
+2. Permission Mappings
+   - cdp_can: CDP management permissions
+   - cdp_handler_can: Handler access rights
+   - first/last: CDP list pointers
+   - list: Double-linked list nodes
+
+### Security Features
+
+1. Access Control
+
+   - Owner-based operations
+   - Delegated permissions
+   - Handler restrictions
+   - Transfer validations
+
+2. State Management
+   - Consistent ownership records
+   - Linked list integrity
+   - Position tracking
+   - Permission verification
+
+## CDP Handler
+
+The CDP Handler is a dedicated proxy contract for each CDP, providing an independent operation interface and asset isolation.
+
+### Core Features
+
+1. Asset Isolation
+
+   - Provides independent account for each CDP
+   - Isolates collateral between different CDPs
+   - Separates debt management
+   - Prevents cross-CDP operations
+
+2. Operation Proxy
+
+   - Executes CDP-related operations
+   - Interacts with CDP Engine
+   - Manages collateral and debt
+   - Handles permission control
+
+3. Security Mechanisms
+   - Operation permission control
+   - Asset security isolation
+   - State consistency protection
+   - Authorized access management
+
+### Workflow
+
+1. Creation Phase
+
+   - Deployed by CDP Manager
+   - Initializes CDP Engine authorization
+   - Establishes operation permissions
+   - Prepares for asset reception
+
+2. Operation Phase
+
+   - Holds CDP collateral
+   - Manages CDP debt
+   - Executes authorized operations
+   - Maintains state consistency
+
+3. Interaction Patterns
+   - Operates through CDP Manager
+   - Executes authorized user instructions
+   - Communicates with CDP Engine
+   - Processes asset transfers
+
+### Scenario: Using ETH to Borrow Stablecoins
+
+Alice holds 10 ETH (assume current price is $2000/ETH) and wants to obtain stablecoins for other investments while keeping her ETH position.
+
+#### 1. Creating CDP
+
+- Alice calls open() function on CDPManager
+- System creates a CDP for her, assigns ID (#123)
+- Deploys a dedicated CDPHandler contract
+
+#### 2. Depositing Collateral
+
+- Alice deposits 5 ETH into her CDP #123
+- These ETH are actually held by her CDPHandler contract
+- Collateral value = 5 ETH \* $2000 = $10,000
+
+#### 3. Borrowing Stablecoins
+
+- System requires 150% minimum collateralization ratio
+- Maximum borrowing capacity: $10,000 / 1.5 = $6,666 in stablecoins
+- Alice decides to borrow 5000 stablecoins (maintaining a safer ratio)
+
+#### 4. Daily Management
+
+1. Adding Collateral
+
+- If ETH price drops to $1800
+- Alice can add more ETH to maintain a safe ratio
+
+2. Repayment
+
+- Alice can repay part or all of the stablecoins anytime
+- Can withdraw corresponding ETH after repayment
+
+3. Permission Delegation
+
+- Alice can authorize her friend to manage the CDP
+- Sets permissions using CDPManager's allow_cdp() function
+
+#### 5. Emergency Situations
+
+- If ETH price drops significantly
+- When approaching liquidation price, Alice can:
+  - Add more collateral
+  - Repay part of the debt
+  - Or transfer CDP to another address
+
+### How Contracts Work Together
+
+1. CDPManager
+
+- Records CDP #123 ownership belongs to Alice
+- Manages CDP operation permissions
+- Provides unified operation interface
+
+2. CDPHandler
+
+- Created specifically for CDP #123
+- Actually holds Alice's 5 ETH
+- Executes all CDP-related operations
+- Interacts with CDPEngine
+
+3. CDPEngine
+
+- Records collateral and debt data
+- Executes actual token operations
+- Calculates interest and liquidation conditions
+
 ## Jug.sol
 
 The Jug contract manages and collects stability fees for different collateral types in the system, handling fee rate accumulation and collection.
