@@ -123,3 +123,66 @@ The CDP Engine is the core contract responsible for managing Collateralized Debt
    - Debt ceiling compliance
    - Minimum debt requirements
    - Arithmetic overflow protection
+
+## Oracle
+
+The Oracle contract serves as a secure price feed mechanism for the LET stablecoin system, integrating with Pyth Network for reliable price data.
+
+### Key Features
+
+1. Price Feed Management
+
+   - Integrates with Pyth Network for real-time price data
+   - Maintains current price state with confidence intervals
+   - Enforces maximum price staleness threshold
+   - Provides standardized price interface for system contracts
+
+2. Security Mechanisms
+
+   - Whitelist access control for price reads
+   - Emergency circuit breaker system
+   - Price staleness checks
+   - Fee-based price updates
+
+3. System Integration
+   - Provides price data to Spotter contract
+   - Supports CDP liquidation decisions
+   - Enables system-wide price-dependent operations
+   - Standardizes price format for system use
+
+### Main Functions
+
+1. poke()
+
+   - Updates current price from Pyth
+   - Requires fee payment for updates
+   - Enforces staleness threshold
+   - Returns excess fees to caller
+
+2. peek()
+   - Returns current price and validity
+   - Restricted to whitelisted contracts
+   - Used by system contracts for price checks
+   - Returns standardized price format
+
+### Security Features
+
+1. Access Control
+
+   - Whitelisted access to price reads
+   - Admin functions protected by Auth modifier
+   - Emergency stop functionality
+   - Fee-based update mechanism
+
+2. Price Validity
+
+   - Maximum staleness threshold
+   - Confidence interval tracking
+   - Price validity checks
+   - Pyth Network security features
+
+3. System Protection
+   - Circuit breaker system
+   - Standardized price format
+   - Excess fee return
+   - Clear error handling
