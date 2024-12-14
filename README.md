@@ -324,3 +324,85 @@ The SurplusAuction contract manages the auctioning of surplus LET (system profit
    - Bid validation checks
    - Token transfer safety
    - State consistency checks
+
+## AuctionPriceCalculator
+
+The AuctionPriceCalculator contracts provide different price calculation strategies for Dutch auctions in the collateral liquidation process. Each implementation offers a unique price decay model optimized for different market conditions.
+
+### Key Features
+
+1. Multiple Price Models
+
+   - Linear decrease for predictable price discovery
+   - Stairstep exponential for quick price finding
+   - Continuous exponential for smooth price decay
+   - Configurable parameters for each model
+
+2. Time-based Calculations
+
+   - Price updates based on elapsed time
+   - Configurable duration parameters
+   - Automatic price computation
+   - Zero price floor enforcement
+
+3. System Integration
+   - Used by CollateralAuction contract
+   - Standardized interface for all models
+   - Precision-preserving calculations [ray]
+   - Flexible model selection
+
+### Implementations
+
+1. LinearDecrease
+
+   - Linear price reduction over time
+   - Simple and predictable decay pattern
+   - Price reaches zero at duration end
+   - Formula: price = initial_price \* (duration - elapsed_time)/duration
+
+2. StairstepExponentialDecrease
+
+   - Step-wise price reduction
+   - Configurable step interval
+   - Percentage-based price cuts
+   - Formula: price = initial_price \* (cut ^ (elapsed_time/step))
+
+3. ExponentialDecrease
+   - Continuous exponential decay
+   - Smooth price reduction curve
+   - Maximum duration limit
+   - Formula: price = initial_price _ e^(-decay _ elapsed_time)
+
+### Key Parameters
+
+1. Time Parameters
+
+   - duration: Maximum auction length [seconds]
+   - step: Time between price drops [seconds]
+   - Configurable per auction type
+
+2. Price Parameters
+   - cut: Price reduction per step [ray]
+   - decay: Exponential decay rate [ray]
+   - All calculations preserve [ray] precision
+
+### Security Features
+
+1. Parameter Validation
+
+   - Maximum value checks
+   - Type safety enforcement
+   - Duration constraints
+   - Rate limitations
+
+2. Access Control
+
+   - Admin-only parameter updates
+   - Protected configuration changes
+   - Secure integration points
+
+3. Calculation Safety
+   - Overflow protection
+   - Precision maintenance
+   - Zero-price floor
+   - Time boundary checks
