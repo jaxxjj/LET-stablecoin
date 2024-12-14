@@ -256,3 +256,71 @@ The EmergencyShutdown contract provides a secure and controlled mechanism for sy
    - Guaranteed collateral access
    - Proportional redemption rights
    - Clear recovery process
+
+## SurplusAuction
+
+The SurplusAuction contract manages the auctioning of surplus LET (system profits from stability fees) in exchange for MKR tokens which are then burned.
+
+### Key Features
+
+1. Auction Management
+   - Auctions surplus LET for MKR tokens
+   - Increasing price auction mechanism
+   - Configurable auction parameters
+   - Automatic MKR token burning
+2. Bidding Process
+
+   - Minimum bid increase requirement
+   - Time-limited bidding periods
+   - Auction duration constraints
+   - Automatic bid settlement
+
+3. System Integration
+   - Handles system stability fee surplus
+   - Burns MKR to reduce supply
+   - Controls maximum LET in auction
+   - Coordinates with CDP Engine
+
+### Main Functions
+
+1. start()
+
+   - Initiates new surplus auction
+   - Sets initial LET amount
+   - Sets starting bid
+   - Tracks auction parameters
+
+2. bid()
+
+   - Places new bid with higher MKR amount
+   - Enforces minimum bid increase
+   - Handles bid expiry timing
+   - Returns previous bid to bidder
+
+3. claim()
+   - Settles completed auction
+   - Transfers LET to winning bidder
+   - Burns winning MKR bid
+   - Cleans up auction state
+
+### Security Features
+
+1. Access Control
+
+   - Admin-only auction initiation
+   - Circuit breaker system
+   - Parameter adjustment controls
+   - Auction limits enforcement
+
+2. Auction Safety
+
+   - Minimum bid increase (5%)
+   - Maximum auction duration (2 days)
+   - Bid lifetime limits (3 hours)
+   - Maximum LET auction limits
+
+3. System Protection
+   - Emergency shutdown capability
+   - Bid validation checks
+   - Token transfer safety
+   - State consistency checks
